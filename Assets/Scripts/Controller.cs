@@ -5,27 +5,9 @@ using System.Collections;
 
 public class Controller : MonoBehaviour {
 
-    public float mouseSensitivityX = 0.5F;
-    public float mouseSensitivityY = 0.5F;
-
     // Keyboard axes buttons in the same order as Unity
     public enum KeyboardAxis { Horizontal = 0, Vertical = 1, None = 3 }
 
-    [System.Serializable]
-    // Handles left modifiers keys (Alt, Ctrl, Shift)
-    public class Modifiers
-    {
-        public bool leftAlt;
-        public bool leftControl;
-        public bool leftShift;
-
-        public bool checkModifiers()
-        {
-            return (!leftAlt ^ Input.GetKey(KeyCode.LeftAlt)) &&
-                (!leftControl ^ Input.GetKey(KeyCode.LeftControl)) &&
-                (!leftShift ^ Input.GetKey(KeyCode.LeftShift));
-        }
-    }
 
     [System.Serializable]
     // Handles common parameters for translations and rotations
@@ -34,26 +16,13 @@ public class Controller : MonoBehaviour {
 
         public bool activate;
         public KeyboardAxis keyboardAxis;
-        public Modifiers modifiers;
         public float sensitivity;
 
         public bool isActivated()
         {
-            return activate && keyboardAxis != KeyboardAxis.None && modifiers.checkModifiers();
+            return activate && keyboardAxis != KeyboardAxis.None;
         }
     }
-
-    // Yaw default configuration
-    public KeyboardControlConfiguration yaw = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Horizontal, modifiers = new Modifiers { leftAlt = true }, sensitivity = 1F };
-
-    // Pitch default configuration
-    public KeyboardControlConfiguration pitch = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Vertical, modifiers = new Modifiers { leftAlt = true }, sensitivity = 1F };
-
-    // Roll default configuration
-    public KeyboardControlConfiguration roll = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Horizontal, modifiers = new Modifiers { leftAlt = true, leftControl = true }, sensitivity = 1F };
-
-    // Vertical translation default configuration
-    public KeyboardControlConfiguration verticalTranslation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Vertical, modifiers = new Modifiers { leftControl = true }, sensitivity = 0.5F };
 
     // Horizontal translation default configuration
     public KeyboardControlConfiguration horizontalTranslation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Horizontal, sensitivity = 0.5F };
@@ -61,9 +30,13 @@ public class Controller : MonoBehaviour {
     // Depth (forward/backward) translation default configuration
     public KeyboardControlConfiguration depthTranslation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Vertical, sensitivity = 0.5F };
 
+    public KeyboardControlConfiguration mouseRotation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Vertical, sensitivity = 0.5F };
+    public KeyboardControlConfiguration mouseTranslation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Vertical, sensitivity = 0.5F };
+    public KeyboardControlConfiguration mouseScroll = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Vertical, sensitivity = 0.5F };
+
     // Default unity names for keyboard axes
-    public string keyboardHorizontalAxisName = "Horizontal";
-    public string keyboardVerticalAxisName = "Vertical";
+    private string keyboardHorizontalAxisName = "Horizontal";
+    private string keyboardVerticalAxisName = "Vertical";
 
 
     private string[] keyboardAxesNames;
@@ -77,26 +50,6 @@ public class Controller : MonoBehaviour {
     // LateUpdate  is called once per frame after all Update are done
     void LateUpdate()
     {
-        if (yaw.isActivated())
-        {
-            float rotationX = Input.GetAxis(keyboardAxesNames[(int)yaw.keyboardAxis]) * yaw.sensitivity;
-            transform.Rotate(0, rotationX, 0);
-        }
-        if (pitch.isActivated())
-        {
-            float rotationY = Input.GetAxis(keyboardAxesNames[(int)pitch.keyboardAxis]) * pitch.sensitivity;
-            transform.Rotate(-rotationY, 0, 0);
-        }
-        if (roll.isActivated())
-        {
-            float rotationZ = Input.GetAxis(keyboardAxesNames[(int)roll.keyboardAxis]) * roll.sensitivity;
-            transform.Rotate(0, 0, rotationZ);
-        }
-        if (verticalTranslation.isActivated())
-        {
-            float translateY = Input.GetAxis(keyboardAxesNames[(int)verticalTranslation.keyboardAxis]) * verticalTranslation.sensitivity;
-            transform.Translate(0, translateY, 0);
-        }
         if (horizontalTranslation.isActivated())
         {
             float translateX = Input.GetAxis(keyboardAxesNames[(int)horizontalTranslation.keyboardAxis]) * horizontalTranslation.sensitivity;
@@ -107,19 +60,42 @@ public class Controller : MonoBehaviour {
             float translateZ = Input.GetAxis(keyboardAxesNames[(int)depthTranslation.keyboardAxis]) * depthTranslation.sensitivity;
             transform.Translate(0, 0, translateZ);
         }
+        if(mouseRotation.isActivated())
+        {
+            if (Input.GetMouseButton(0))
+            {
+                float displacementX = Input.GetAxis("Mouse X") * mouseRotation.sensitivity;
+                float displacementY = Input.GetAxis("Mouse Y") * mouseRotation.sensitivity;
+                displacementX = ClampAngle(displacementX, -360F, 360F);
+                displacementY = ClampAngle(displacementY, -60F, 60F);
+                Quaternion xQuaternion = Quaternion.AngleAxis(displacementX, Vector3.up);
+                Quaternion yQuaternion = Quaternion.AngleAxis(displacementY, -Vector3.right);
+                transform.localRotation = transform.rotation * xQuaternion * yQuaternion;
+            }
+        }
+        if(mouseTranslation.isActivated())
+        {
+            if (Input.GetMouseButton(1))
+            {
+                float displacementX = Input.GetAxis("Mouse X") * mouseTranslation.sensitivity;
+                float displacementY = Input.GetAxis("Mouse Y") * mouseTranslation.sensitivity;
+                transform.Translate(displacementX, displacementY, 0);
+            }
+        }
+        if(mouseScroll.isActivated())
+        {
+            float displacementZ = Input.GetAxis("Mouse ScrollWheel") * mouseScroll.sensitivity;
+            transform.Translate(0, 0, displacementZ);
+        }
 
-        // Mouselook
-        Quaternion originalRotation = new Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+        ApplyRotationRestriction();
+        ApplyTranslationRestriction();
 
-        float mouseRotationX = Input.GetAxis("Mouse X") * mouseSensitivityX;
-        float mouseRotationY = Input.GetAxis("Mouse Y") * mouseSensitivityY;
-        mouseRotationX = ClampAngle(mouseRotationX, -360F, 360F);
-        mouseRotationY = ClampAngle(mouseRotationY, -60F, 60F);
-        Quaternion xQuaternion = Quaternion.AngleAxis(mouseRotationX, Vector3.up);
-        Quaternion yQuaternion = Quaternion.AngleAxis(mouseRotationY, -Vector3.right);
-        transform.localRotation = originalRotation * xQuaternion * yQuaternion;
+    }
 
-        // Restrict view toward the wall
+    private void ApplyRotationRestriction()
+    {
+        //Todo : it will depend on models!
         transform.rotation = Quaternion.Euler(
             transform.rotation.eulerAngles.x < 180 ?
                 Mathf.Clamp(transform.rotation.eulerAngles.x, 0F, 60F) :
@@ -127,15 +103,17 @@ public class Controller : MonoBehaviour {
             Mathf.Clamp(transform.rotation.eulerAngles.y, 100F, 260F),
             Mathf.Clamp(transform.rotation.eulerAngles.z, 0F, 0F)
         );
+    }
 
-        // Restrict movement around the wall front
+    private void ApplyTranslationRestriction()
+    {
         transform.position = new Vector3(
             Mathf.Clamp(transform.position.x, -2F, 10F),
             Mathf.Clamp(transform.position.y, 0F, 5F),
             Mathf.Clamp(transform.position.z, -1F, 6F)
         );
-
     }
+
     public static float ClampAngle(float angle, float min, float max)
     {
         if (angle < -360F)
