@@ -39,7 +39,6 @@ public class TimeControl : MonoBehaviour
             }
         }
         transform.Rotate(new Vector3(0, rotation, 0));
-        Debug.Log(transform.rotation.eulerAngles.y);
     }
 
     void OnGUI()
