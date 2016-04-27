@@ -1,12 +1,13 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System;
 
 [AddComponentMenu("Camera-Control/Keyboard")]
 
 public class Controller : MonoBehaviour {
 
     // Keyboard axes buttons in the same order as Unity
-    public enum KeyboardAxis { Horizontal = 0, Vertical = 1, None = 3 }
+    public enum KeyboardAxis { Horizontal = 0, Vertical = 1, ShiftCtrl = 2, None = 3 }
 
 
     [System.Serializable]
@@ -26,6 +27,7 @@ public class Controller : MonoBehaviour {
 
     // Horizontal translation default configuration
     public KeyboardControlConfiguration horizontalTranslation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Horizontal, sensitivity = 0.5F };
+    public KeyboardControlConfiguration verticalTranslation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.ShiftCtrl, sensitivity = 0.5F };
 
     // Depth (forward/backward) translation default configuration
     public KeyboardControlConfiguration depthTranslation = new KeyboardControlConfiguration { keyboardAxis = KeyboardAxis.Vertical, sensitivity = 0.5F };
@@ -54,6 +56,11 @@ public class Controller : MonoBehaviour {
         {
             float translateX = Input.GetAxis(keyboardAxesNames[(int)horizontalTranslation.keyboardAxis]) * horizontalTranslation.sensitivity;
             transform.Translate(translateX, 0, 0);
+        }
+        if (verticalTranslation.isActivated())
+        {
+            float translateY = (Convert.ToInt32(Input.GetKey(KeyCode.LeftShift)) - Convert.ToInt32(Input.GetKey(KeyCode.LeftControl))) * horizontalTranslation.sensitivity;
+            transform.Translate(0, translateY, 0);
         }
         if (depthTranslation.isActivated())
         {
